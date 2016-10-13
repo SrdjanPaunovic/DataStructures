@@ -1,0 +1,1 @@
+This repository contains some examples of structures in C/C++
