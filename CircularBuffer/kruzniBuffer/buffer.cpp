@@ -9,8 +9,12 @@ bool Push(TBuffer *buffer, int number){
 	EnterCriticalSection(&buffer->cs);
 
 	if (buffer->count == buffer->bufferSize){
-		LeaveCriticalSection(&buffer->cs);
-		return false;
+		if (buffer->bufferSize >= MAX_BUFFER_SIZE) {
+			LeaveCriticalSection(&buffer->cs);
+			return false;
+		}
+		printf("\nExpanding buffer!");
+		ExpandBuffer(buffer);
 	}
 
 	buffer->buffer[buffer->pushldx] = number;
@@ -31,6 +35,14 @@ bool Pop(TBuffer *buffer,int *retVal){
 	if (buffer->count == 0){
 		LeaveCriticalSection(&buffer->cs);
 		return false;
+	}
+
+	int usageInPercent = ((float)buffer->count / (float)buffer->bufferSize) * 100; 
+	if (usageInPercent < 25 && buffer->bufferSize > MIN_BUFFER_SIZE) {
+		//when buffer is under 25% full and bufferSize bigger than minimal value of bufferSize
+		printf("\nBuffer is %d%% full,buffer size: %d", usageInPercent, buffer->bufferSize);
+		printf("\nBuffer is narrowing..");
+		NarrowBuffer(buffer);
 	}
 
 	*retVal = buffer->buffer[buffer->popldx];
@@ -65,26 +77,60 @@ void PrintBuffer(TBuffer *buffer){
 
 }
 
-TBuffer* ExpandBuffer(TBuffer * oldBuffer)
+void ExpandBuffer(TBuffer * circBuffer)
 {
-	TBuffer *retBuffer;
-	InitializeBuffer(&retBuffer, oldBuffer->bufferSize * 2);//prosiruje se duplo
+	int newBufferSize = circBuffer->bufferSize * 2;
+	int *newBuffer = (int*)calloc(newBufferSize,sizeof(int));
+	//InitializeBuffer(&retBuffer, oldBuffer->bufferSize * 2);//prosiruje se duplo
 	
-	int deltaMem = oldBuffer->bufferSize - oldBuffer->pushldx; // razlika izmedju push i buffer size
+	int deltaMem = circBuffer->bufferSize - circBuffer->pushldx; // razlika izmedju push i buffer size
 
-	memset(retBuffer->buffer, 0, sizeof(int) * retBuffer->bufferSize);//optional, set all values on NULL
-
-	memcpy( retBuffer->buffer,									//dest
-			oldBuffer->buffer + oldBuffer->pushldx,				//src
+	memcpy( newBuffer,									//dest
+			circBuffer->buffer + circBuffer->pushldx,				//src
 			deltaMem*sizeof(int));								//length
-	memcpy( retBuffer->buffer + deltaMem,						//dest
-			oldBuffer->buffer,									//src
-			(oldBuffer->bufferSize - deltaMem)*sizeof(int));		// length
-	retBuffer->count   = oldBuffer->count;
-	retBuffer->pushldx = oldBuffer->count;
-	
-	free(oldBuffer->buffer);
-	return retBuffer;
+	memcpy( newBuffer + deltaMem,						//dest
+			circBuffer->buffer,									//src
+			(circBuffer->bufferSize - deltaMem)*sizeof(int));		// length
+
+	free(circBuffer->buffer);
+
+	circBuffer->popldx = 0;
+	circBuffer->pushldx = circBuffer->count;
+	circBuffer->buffer = newBuffer;
+	circBuffer->bufferSize = newBufferSize;
+
+}
+
+void NarrowBuffer(TBuffer * circBuffer)
+{
+	int newBufferSize = circBuffer->bufferSize / 2;
+	int *newBuffer    = (int*)calloc(newBufferSize, sizeof(int));
+
+
+	if (circBuffer->popldx <= circBuffer->pushldx) {
+		//just move data beetwen popIdx and pushIdx to newBuffer
+		int deltaMem = circBuffer->pushldx - circBuffer->popldx;
+		memcpy( newBuffer,												//dest
+				circBuffer->buffer + circBuffer->popldx,				//src
+				deltaMem * sizeof(int));								//length
+	}
+	else {
+		//first move data beetwen popIdx and bufferSize to newBuffer
+		//than data beetwen 0 and pushIdx from oldBuffer to newBuffer
+		int deltaMem = circBuffer->bufferSize - circBuffer->popldx;
+		memcpy(	newBuffer,												//dest
+				circBuffer->buffer + circBuffer->popldx,				//src
+				deltaMem * sizeof(int));								//length
+
+		memcpy(	newBuffer + deltaMem,									//dest
+				circBuffer->buffer,										//src
+				circBuffer->pushldx * sizeof(int));						//length beetwen 0 and pushIdx
+	}
+
+	circBuffer->popldx = 0;
+	circBuffer->pushldx = circBuffer->count;
+	circBuffer->buffer = newBuffer;
+	circBuffer->bufferSize = newBufferSize;
 }
 
 void DestoyBuffer(TBuffer ** buffer)

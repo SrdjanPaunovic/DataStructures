@@ -12,11 +12,12 @@ int _tmain(int argc, _TCHAR* argv[])
 {
 	TBuffer *buffer;
 	InitializeBuffer(&buffer, BUFFER_SIZE);
-	HANDLE read, write;
+	HANDLE read, write, write1;
 
 
 	read = CreateThread(NULL, 0, &unloadBuffer, &buffer, 0, NULL);
 	write = CreateThread(NULL, 0, &loadBuffer, &buffer, 0, NULL);
+	write1 = CreateThread(NULL, 0, &loadBuffer, &buffer, 0, NULL);
 
 	getchar();
 
@@ -33,18 +34,13 @@ int _tmain(int argc, _TCHAR* argv[])
 
 DWORD WINAPI loadBuffer(LPVOID lpParam) {
 	TBuffer **buffer = (TBuffer **)lpParam;
-	for (int i = 0; i < 100;i++) {
+	for (int i = 0; i < 150;i++) {
 		if (Push(*buffer, i)) {
 			printf("\n -Sucessfully added to buffer");
 		}
 		else {
-			
-			i--; //vraca se da upise element ponovo 
-			printf("\n -Buffer full->Expanding");
-			*buffer=ExpandBuffer(*buffer);
-			printf("\n -Buffer Expanded!");
-
-			PrintBuffer(*buffer);
+			i--;
+			printf("\n -Buffer is full, wait");
 		}
 	}
 	return 0;
@@ -52,7 +48,7 @@ DWORD WINAPI loadBuffer(LPVOID lpParam) {
 
 DWORD WINAPI unloadBuffer(LPVOID lpParam) {
 	TBuffer **buffer = (TBuffer **)lpParam;
-	for (int i = 0; i < 100;i++) {
+	for (int i = 0; i < 150;i++) {
 		int retValue;
 		if (Pop(*buffer, &retValue)) {
 			printf("\n -Sucessfully POP from baffer");
