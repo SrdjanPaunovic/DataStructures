@@ -8,7 +8,12 @@
 #include "targetver.h"
 
 #include <stdio.h>
+#include <Windows.h>
+#include <assert.h>
 #include <tchar.h>
+#include "list.h"
+
+
 
 
 
